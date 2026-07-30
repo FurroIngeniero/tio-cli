@@ -43,17 +43,6 @@ def extract(url):
             len(html)
         )
 
-
-        with open(
-            "yourupload_debug.html",
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            f.write(html)
-
-
-
         # JWPlayer file
 
         match = re.search(

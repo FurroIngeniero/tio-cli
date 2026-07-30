@@ -10,7 +10,6 @@ from providers.resolvers.voe import extract as extract_voe
 from providers.resolvers.yourupload import extract as extract_yourupload
 
 
-
 VLC_PATH = "/mnt/c/Program Files/VideoLAN/VLC/vlc.exe"
 
 
@@ -63,13 +62,13 @@ def abrir_vlc(stream, referer=None):
 
     try:
 
-        subprocess.Popen(
+        subprocess.run(
             comando
         )
 
 
         print(
-            "VLC iniciado correctamente."
+            "\nVLC cerrado."
         )
 
 
@@ -84,136 +83,7 @@ def abrir_vlc(stream, referer=None):
 
 
 
-def main():
-
-    query = input(
-        "Buscar anime: "
-    ).strip()
-
-
-
-    resultados = search(query)
-
-
-
-    if not resultados:
-
-        print(
-            "No se encontraron resultados."
-        )
-
-        return
-
-
-
-    print()
-
-
-
-    for i, anime in enumerate(
-        resultados,
-        start=1
-    ):
-
-        print(
-            f"{i}. {anime.title}"
-        )
-
-
-
-    print()
-
-
-
-    anime = resultados[
-        elegir(
-            len(resultados),
-            "Anime: "
-        ) - 1
-    ]
-
-
-
-    anime = get_anime(
-        anime.slug
-    )
-
-
-
-    print(
-        "\nCapítulos\n"
-    )
-
-
-
-    episodios = sorted(
-        anime.episodes
-    )
-
-
-
-    for episodio in episodios:
-
-        print(
-            episodio
-        )
-
-
-
-    print()
-
-
-
-    episodio = elegir(
-        len(episodios),
-        "Selecciona un episodio: "
-    )
-
-
-
-    episodio = episodios[
-        episodio - 1
-    ]
-
-
-
-    servidores = get_servers(
-        anime.slug,
-        episodio
-    )
-
-
-
-    print(
-        "\n========== SERVIDORES ==========\n"
-    )
-
-
-
-    for i, servidor in enumerate(
-        servidores,
-        start=1
-    ):
-
-        premium = (
-            " (Premium)"
-            if servidor.premium
-            else ""
-        )
-
-
-        print(
-            f"{i}. {servidor.name}{premium}"
-        )
-
-
-        print(
-            f"   URL: {servidor.url}"
-        )
-
-
-        print()
-
+def reproducir(servidores):
 
 
     servidor = servidores[
@@ -224,28 +94,26 @@ def main():
     ]
 
 
-
     print(
-        "\n========== SELECCIONADO ==========\n"
+        "\n========== SERVIDOR ==========\n"
     )
 
 
     print(
-        f"Servidor : {servidor.name}"
+        servidor.name
     )
 
 
     print(
-        f"URL       : {servidor.url}"
+        servidor.url
     )
-
-
-
-    stream = None
 
 
 
     nombre = servidor.name.lower()
+
+
+    stream = None
 
 
 
@@ -281,11 +149,10 @@ def main():
 
 
         print(
-            "\nServidor sin resolver todavía."
+            "Servidor no soportado."
         )
 
         return
-
 
 
 
@@ -293,18 +160,16 @@ def main():
 
 
         print(
-            "\nNo se pudo extraer el stream."
+            "No se pudo extraer el stream."
         )
 
         return
 
 
 
-
     print(
         "\n========== STREAM ==========\n"
     )
-
 
 
     if isinstance(stream, dict):
@@ -322,7 +187,6 @@ def main():
 
     else:
 
-
         print(
             stream
         )
@@ -331,6 +195,189 @@ def main():
         abrir_vlc(
             stream
         )
+
+
+
+
+
+def main():
+
+
+    query = input(
+        "Buscar anime: "
+    ).strip()
+
+
+
+    resultados = search(query)
+
+
+
+    if not resultados:
+
+        print(
+            "No se encontraron resultados."
+        )
+
+        return
+
+
+
+    print()
+
+
+    for i, anime in enumerate(
+        resultados,
+        start=1
+    ):
+
+        print(
+            f"{i}. {anime.title}"
+        )
+
+
+
+    anime = resultados[
+        elegir(
+            len(resultados),
+            "Anime: "
+        ) - 1
+    ]
+
+
+
+    anime = get_anime(
+        anime.slug
+    )
+
+
+
+    episodios = sorted(
+        anime.episodes
+    )
+
+
+
+    while True:
+
+
+        print(
+            "\n========== CAPÍTULOS ==========\n"
+        )
+
+
+        for i, episodio in enumerate(
+            episodios,
+            start=1
+        ):
+
+            print(
+                f"{i}. Episodio {episodio}"
+            )
+
+
+
+        print()
+
+
+
+        episodio = elegir(
+            len(episodios),
+            "Capítulo: "
+        )
+
+
+
+        episodio = episodios[
+            episodio - 1
+        ]
+
+
+
+        print(
+            f"\nReproduciendo episodio {episodio}"
+        )
+
+
+
+        servidores = get_servers(
+            anime.slug,
+            episodio
+        )
+
+
+
+        if not servidores:
+
+            print(
+                "No hay servidores."
+            )
+
+            continue
+
+
+
+        reproducir(
+            servidores
+        )
+
+
+
+        while True:
+
+
+            print(
+                "\n========== OPCIONES =========="
+            )
+
+            print(
+                "1. Cambiar capítulo"
+            )
+
+            print(
+                "2. Repetir capítulo"
+            )
+
+            print(
+                "3. Salir"
+            )
+
+
+            opcion = input(
+                "\nOpción: "
+            )
+
+
+
+            if opcion == "1":
+
+                break
+
+
+
+            elif opcion == "2":
+
+                reproducir(
+                    servidores
+                )
+
+
+
+            elif opcion == "3":
+
+                print(
+                    "Saliendo..."
+                )
+
+                return
+
+
+
+            else:
+
+                print(
+                    "Opción inválida."
+                )
 
 
 
