@@ -200,18 +200,6 @@ def extract(url):
 
 
 
-    # Debug
-
-    with open(
-        "voe_page_debug.html",
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        file.write(html)
-
-
-
     soup = BeautifulSoup(
         html,
         "html.parser"
