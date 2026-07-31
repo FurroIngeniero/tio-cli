@@ -3,15 +3,26 @@ import subprocess
 
 def play(stream, referer=None):
 
+    print("\nAbriendo MPV para Android...")
+
     comando = [
-        "mpv",
-        stream
+        "am",
+        "start",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        stream,
+        "-t",
+        "video/*"
     ]
 
-    if referer:
+    try:
+        subprocess.run(
+            comando,
+            check=True
+        )
 
-        comando.extend([
-            f"--http-header-fields=Referer: {referer}"
-        ])
+    except Exception as e:
 
-    subprocess.run(comando)
+        print("Error abriendo MPV:")
+        print(e)

@@ -8,107 +8,90 @@ HEADERS = {
         "(Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 "
         "(KHTML, like Gecko) "
-        "Chrome/139 Safari/537.36"
+        "Chrome/139.0.0.0 Safari/537.36"
     ),
     "Referer": "https://www.yourupload.com/"
 }
-
 
 
 def extract(url):
 
     print("Abriendo YourUpload...")
 
-
     try:
 
         session = requests.Session()
+        session.headers.update(HEADERS)
 
-
+        # Abrir el embed
         response = session.get(
             url,
-            headers=HEADERS,
-            timeout=15
+            timeout=20
         )
-
 
         response.raise_for_status()
 
-
         html = response.text
 
+        print("HTML recibido:", len(html))
 
-        print(
-            "HTML recibido:",
-            len(html)
-        )
-
-        # JWPlayer file
-
+        # Buscar el MP4 de JWPlayer
         match = re.search(
             r"file:\s*['\"](https?://[^'\"]+\.mp4[^'\"]*)",
             html
         )
 
+        if not match:
 
-        if match:
-
-            stream = match.group(1)
-
-            print(
-                "\nMP4 encontrado:"
+            # Fallback OG
+            match = re.search(
+                r'property="og:video"\s+content="([^"]+)"',
+                html
             )
 
-            print(stream)
+        if not match:
 
+            print("No se encontró el MP4.")
+            return None
 
-            return {
-                "url": stream,
-                "referer": url
-            }
+        stream = match.group(1)
 
+        print("\nMP4 encontrado:")
+        print(stream)
 
+        print("\nResolviendo redirección...")
 
-        # OpenGraph fallback
-
-        match = re.search(
-            r'property="og:video"\s+content="([^"]+)"',
-            html
+        # Seguir la redirección hasta la URL real
+        r = session.get(
+            stream,
+            allow_redirects=True,
+            timeout=20,
+            stream=True
         )
 
+        print("Estado:", r.status_code)
 
-        if match:
+        print("\nRedirecciones:")
 
-            stream = match.group(1)
+        for h in r.history:
 
             print(
-                "\nOG Video encontrado:"
+                h.status_code,
+                "->",
+                h.headers.get("Location")
             )
 
-            print(stream)
+        print("\nURL final:")
+        print(r.url)
 
-
-            return {
-                "url": stream,
-                "referer": url
-            }
-
-
-
-        print(
-            "No se encontró video"
-        )
-
-
-        return None
-
-
+        return {
+            "url": r.url,
+            "referer": "https://www.yourupload.com/"
+        }
 
     except Exception as e:
 
-        print(
-            "Error YourUpload:",
-            e
-        )
+        print("\nError YourUpload:")
+        print(e)
 
         return None

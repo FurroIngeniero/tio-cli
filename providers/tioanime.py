@@ -54,6 +54,24 @@ def get_anime(slug: str):
 
     html = response.text
 
+    # Obtener título
+    title = ""
+
+    match = re.search(
+        r"<title>(.*?)</title>",
+        html,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    if match:
+
+        title = (
+            match.group(1)
+            .replace(" - TioAnime", "")
+            .strip()
+        )
+
+    # Obtener episodios
     match = re.search(
         r'var episodes = \[(.*?)\];',
         html,
@@ -65,17 +83,27 @@ def get_anime(slug: str):
     if match:
 
         episodes = [
+
             int(ep.strip())
+
             for ep in match.group(1).split(",")
+
             if ep.strip().isdigit()
+
         ]
 
     return Anime(
-        title="",
+
+        title=title,
+
         slug=slug,
+
         url=f"{BASE_URL}/anime/{slug}",
+
         thumbnail="",
+
         episodes=episodes
+
     )
 
 

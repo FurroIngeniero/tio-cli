@@ -9,6 +9,12 @@ from providers.resolvers.yourupload import extract as extract_yourupload
 
 from player import play
 
+from library import (
+    update,
+    get,
+    all_anime
+)
+
 
 def elegir(maximo, mensaje):
 
@@ -40,6 +46,7 @@ def reproducir(servidores):
     ]
 
     print("\n========== SERVIDOR ==========\n")
+
     print(servidor.name)
     print(servidor.url)
 
@@ -91,7 +98,7 @@ def reproducir(servidores):
         play(stream)
 
 
-def main():
+def buscar_anime():
 
     query = input(
         "Buscar anime: "
@@ -124,34 +131,83 @@ def main():
         anime.slug
     )
 
+    progreso = get(
+        anime.slug
+    )
+
     episodios = sorted(
         anime.episodes
     )
 
-    while True:
+    if progreso:
 
-        print("\n========== CAPÍTULOS ==========\n")
+        print("\n========== PROGRESO ==========\n")
 
-        for i, episodio in enumerate(
-            episodios,
-            start=1
-        ):
-
-            print(f"{i}. Episodio {episodio}")
+        print(
+            f"Último capítulo visto: {progreso['episode']}"
+        )
 
         print()
 
-        episodio = elegir(
-            len(episodios),
-            "Capítulo: "
+        print("1. Continuar")
+        print("2. Elegir capítulo")
+
+        opcion = elegir(
+            2,
+            "Opción: "
         )
 
-        episodio = episodios[
-            episodio - 1
-        ]
+        if opcion == 1:
+
+            episodio = progreso["episode"]
+
+        else:
+
+            episodio = None
+
+    else:
+
+        episodio = None
+
+    while True:
+
+        if episodio is None:
+
+            print(
+                "\n========== CAPÍTULOS ==========\n"
+            )
+
+            for i, ep in enumerate(
+                episodios,
+                start=1
+            ):
+
+                print(
+                    f"{i}. Episodio {ep}"
+                )
+
+            print()
+
+            indice = elegir(
+                len(episodios),
+                "Capítulo: "
+            )
+
+            episodio = episodios[
+                indice - 1
+            ]
 
         print(
             f"\nReproduciendo episodio {episodio}"
+        )
+
+        print("Slug:", anime.slug)
+        print("Título:", anime.title)
+
+        update(
+            anime.slug,
+            anime.title,
+            episodio
         )
 
         servidores = get_servers(
@@ -161,7 +217,11 @@ def main():
 
         if not servidores:
 
-            print("No hay servidores.")
+            print(
+                "No hay servidores."
+            )
+
+            episodio = None
             continue
 
         reproducir(
@@ -170,31 +230,219 @@ def main():
 
         while True:
 
-            print("\n========== OPCIONES ==========")
-            print("1. Cambiar capítulo")
-            print("2. Repetir capítulo")
-            print("3. Salir")
+            print(
+                "\n========== OPCIONES ==========\n"
+            )
 
-            opcion = input("\nOpción: ")
+            print("1. Siguiente capítulo")
+            print("2. Capítulo anterior")
+            print("3. Elegir capítulo")
+            print("4. Repetir capítulo")
+            print("5. Volver al menú principal")
+            print("6. Salir")
 
-            if opcion == "1":
+            opcion = elegir(
+                6,
+                "Opción: "
+            )
+
+            if opcion == 1:
+
+                pos = episodios.index(
+                    episodio
+                )
+
+                if pos < len(episodios) - 1:
+
+                    episodio = episodios[
+                        pos + 1
+                    ]
+
+                else:
+
+                    print(
+                        "Ya estás en el último capítulo."
+                    )
 
                 break
 
-            elif opcion == "2":
+            elif opcion == 2:
 
-                reproducir(
-                    servidores
+                pos = episodios.index(
+                    episodio
                 )
 
-            elif opcion == "3":
+                if pos > 0:
 
-                print("Saliendo...")
+                    episodio = episodios[
+                        pos - 1
+                    ]
+
+                else:
+
+                    print(
+                        "Ya estás en el primer capítulo."
+                    )
+
+                break
+
+            elif opcion == 3:
+
+                episodio = None
+                break
+
+            elif opcion == 4:
+
+                pass
+
+            elif opcion == 5:
+
                 return
 
             else:
 
-                print("Opción inválida.")
+                print(
+                    "Saliendo..."
+                )
+
+                raise SystemExit
+
+
+def continuar():
+
+    viendo = all_anime()
+
+    if not viendo:
+
+        print(
+            "\nNo tienes animes en seguimiento.\n"
+        )
+
+        return
+
+    print(
+        "\n========== CONTINUAR VIENDO ==========\n"
+    )
+
+    for i, anime in enumerate(
+        viendo,
+        start=1
+    ):
+
+        print(
+            f"{i}. {anime['title']} (Cap. {anime['episode']})"
+        )
+
+    print()
+
+    anime = viendo[
+        elegir(
+            len(viendo),
+            "Anime: "
+        ) - 1
+    ]
+
+    anime_real = get_anime(
+    anime["slug"]
+    )
+
+    episodios = sorted(
+        anime_real.episodes
+    )
+
+    episodio = anime["episode"]
+
+    while True:
+
+        print(
+            f"\nReproduciendo episodio {episodio}"
+        )
+
+        update(
+            anime_real.slug,
+            anime_real.title,
+            episodio
+        )
+
+        servidores = get_servers(
+        anime_real.slug,
+        episodio
+        )   
+
+        if not servidores:
+
+            print(
+                "No hay servidores."
+            )
+
+            return
+
+        reproducir(
+            servidores
+        )
+
+        print()
+
+        print("1. Siguiente capítulo")
+        print("2. Salir")
+
+        opcion = elegir(
+            2,
+            "Opción: "
+        )
+
+        if opcion == 1:
+
+            pos = episodios.index(
+                episodio
+            )
+
+            if pos < len(episodios) - 1:
+
+                episodio = episodios[
+                    pos + 1
+                ]
+
+            else:
+
+                print(
+                    "Último capítulo."
+                )
+                return
+
+        else:
+
+            return
+
+
+def main():
+
+    while True:
+
+        print(
+            "\n========== TIO-CLI ==========\n"
+        )
+
+        print("1. Continuar viendo")
+        print("2. Buscar anime")
+        print("3. Salir")
+
+        opcion = elegir(
+            3,
+            "Opción: "
+        )
+
+        if opcion == 1:
+
+            continuar()
+
+        elif opcion == 2:
+
+            buscar_anime()
+
+        else:
+
+            break
 
 
 if __name__ == "__main__":
