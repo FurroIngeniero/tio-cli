@@ -38,12 +38,55 @@ def elegir(maximo, mensaje):
 
 def reproducir(servidores):
 
-    servidor = servidores[
-        elegir(
+    print("\n========== SERVIDORES ==========\n")
+
+    soportados = []
+
+    for i, servidor in enumerate(
+        servidores,
+        start=1
+    ):
+
+        nombre = servidor.name.lower()
+
+        if "voe" in nombre:
+
+            estado = "🟢"
+
+        elif "yourupload" in nombre:
+
+            estado = "🟢"
+
+        else:
+
+            estado = "🔴"
+
+        print(
+            f"{i}. {estado} {servidor.name}"
+        )
+
+        soportados.append(
+            "voe" in nombre
+            or "yourupload" in nombre
+        )
+
+    print()
+
+    while True:
+
+        opcion = elegir(
             len(servidores),
             "Servidor: "
         ) - 1
-    ]
+
+        if soportados[opcion]:
+
+            servidor = servidores[opcion]
+            break
+
+        print(
+            "\nEse servidor aún no está soportado.\n"
+        )
 
     print("\n========== SERVIDOR ==========\n")
 
@@ -70,14 +113,11 @@ def reproducir(servidores):
             servidor.url
         )
 
-    else:
-
-        print("Servidor no soportado.")
-        return
-
     if not stream:
 
-        print("No se pudo extraer el stream.")
+        print(
+            "\nNo se pudo extraer el stream."
+        )
         return
 
     print("\n========== STREAM ==========\n")
@@ -89,7 +129,7 @@ def reproducir(servidores):
         play(
             stream["url"],
             stream.get("referer")
-    )
+        )
 
     else:
 
