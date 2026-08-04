@@ -87,12 +87,11 @@ def reproducir(servidores):
         print(stream["url"])
 
         play(
-            stream["url"],
-            stream.get("referer")
-        )
+        stream["url"],
+        stream.get("referer")
+    )
 
     else:
-
         print(stream)
 
         play(stream)
@@ -201,9 +200,6 @@ def buscar_anime():
             f"\nReproduciendo episodio {episodio}"
         )
 
-        print("Slug:", anime.slug)
-        print("Título:", anime.title)
-
         update(
             anime.slug,
             anime.title,
@@ -217,11 +213,10 @@ def buscar_anime():
 
         if not servidores:
 
-            print(
-                "No hay servidores."
-            )
+            print("No hay servidores.")
 
             episodio = None
+
             continue
 
         reproducir(
@@ -289,6 +284,7 @@ def buscar_anime():
             elif opcion == 3:
 
                 episodio = None
+
                 break
 
             elif opcion == 4:
@@ -301,13 +297,9 @@ def buscar_anime():
 
             else:
 
-                print(
-                    "Saliendo..."
-                )
+                print("Saliendo...")
 
                 raise SystemExit
-
-
 def continuar():
 
     viendo = all_anime()
@@ -329,8 +321,10 @@ def continuar():
         start=1
     ):
 
+        titulo = anime["title"] or anime["slug"]
+
         print(
-            f"{i}. {anime['title']} (Cap. {anime['episode']})"
+            f"{i}. {titulo} (Cap. {anime['episode']})"
         )
 
     print()
@@ -343,7 +337,7 @@ def continuar():
     ]
 
     anime_real = get_anime(
-    anime["slug"]
+        anime["slug"]
     )
 
     episodios = sorted(
@@ -365,9 +359,9 @@ def continuar():
         )
 
         servidores = get_servers(
-        anime_real.slug,
-        episodio
-        )   
+            anime_real.slug,
+            episodio
+        )
 
         if not servidores:
 
@@ -381,13 +375,18 @@ def continuar():
             servidores
         )
 
-        print()
+        print(
+            "\n========== OPCIONES ==========\n"
+        )
 
         print("1. Siguiente capítulo")
-        print("2. Salir")
+        print("2. Capítulo anterior")
+        print("3. Elegir capítulo")
+        print("4. Volver al menú")
+        print("5. Salir")
 
         opcion = elegir(
-            2,
+            5,
             "Opción: "
         )
 
@@ -406,13 +405,60 @@ def continuar():
             else:
 
                 print(
-                    "Último capítulo."
+                    "Ya estás en el último capítulo."
                 )
-                return
+
+        elif opcion == 2:
+
+            pos = episodios.index(
+                episodio
+            )
+
+            if pos > 0:
+
+                episodio = episodios[
+                    pos - 1
+                ]
+
+            else:
+
+                print(
+                    "Ya estás en el primer capítulo."
+                )
+
+        elif opcion == 3:
+
+            print(
+                "\n========== CAPÍTULOS ==========\n"
+            )
+
+            for i, ep in enumerate(
+                episodios,
+                start=1
+            ):
+
+                print(
+                    f"{i}. Episodio {ep}"
+                )
+
+            print()
+
+            indice = elegir(
+                len(episodios),
+                "Capítulo: "
+            )
+
+            episodio = episodios[
+                indice - 1
+            ]
+
+        elif opcion == 4:
+
+            return
 
         else:
 
-            return
+            raise SystemExit
 
 
 def main():

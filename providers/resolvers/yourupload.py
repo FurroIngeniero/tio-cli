@@ -8,90 +8,107 @@ HEADERS = {
         "(Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 "
         "(KHTML, like Gecko) "
-        "Chrome/139.0.0.0 Safari/537.36"
+        "Chrome/139 Safari/537.36"
     ),
     "Referer": "https://www.yourupload.com/"
 }
+
 
 
 def extract(url):
 
     print("Abriendo YourUpload...")
 
+
     try:
 
         session = requests.Session()
-        session.headers.update(HEADERS)
 
-        # Abrir el embed
+
         response = session.get(
             url,
-            timeout=20
+            headers=HEADERS,
+            timeout=15
         )
+
 
         response.raise_for_status()
 
+
         html = response.text
 
-        print("HTML recibido:", len(html))
 
-        # Buscar el MP4 de JWPlayer
+        print(
+            "HTML recibido:",
+            len(html)
+        )
+
+        # JWPlayer file
+
         match = re.search(
             r"file:\s*['\"](https?://[^'\"]+\.mp4[^'\"]*)",
             html
         )
 
-        if not match:
 
-            # Fallback OG
-            match = re.search(
-                r'property="og:video"\s+content="([^"]+)"',
-                html
-            )
+        if match:
 
-        if not match:
-
-            print("No se encontró el MP4.")
-            return None
-
-        stream = match.group(1)
-
-        print("\nMP4 encontrado:")
-        print(stream)
-
-        print("\nResolviendo redirección...")
-
-        # Seguir la redirección hasta la URL real
-        r = session.get(
-            stream,
-            allow_redirects=True,
-            timeout=20,
-            stream=True
-        )
-
-        print("Estado:", r.status_code)
-
-        print("\nRedirecciones:")
-
-        for h in r.history:
+            stream = match.group(1)
 
             print(
-                h.status_code,
-                "->",
-                h.headers.get("Location")
+                "\nMP4 encontrado:"
             )
 
-        print("\nURL final:")
-        print(r.url)
+            print(stream)
 
-        return {
-            "url": r.url,
-            "referer": "https://www.yourupload.com/"
-        }
+
+            return {
+                "url": stream,
+                "referer": url
+            }
+
+
+
+        # OpenGraph fallback
+
+        match = re.search(
+            r'property="og:video"\s+content="([^"]+)"',
+            html
+        )
+
+
+        if match:
+
+            stream = match.group(1)
+
+            print(
+                "\nOG Video encontrado:"
+            )
+
+            print(stream)
+
+
+            return {
+                "url": stream,
+                "referer": url
+            }
+
+
+
+        print(
+            "No se encontró video"
+        )
+
+
+        return None
+
+
 
     except Exception as e:
 
-        print("\nError YourUpload:")
-        print(e)
+        print(
+            "Error YourUpload:",
+            e
+        )
 
         return None
