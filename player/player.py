@@ -1,53 +1,19 @@
-import shutil
-import subprocess
+import os
+import platform
+
+from .vlc import play as play_windows
+from .mpv import play as play_linux
+from .termux import play as play_termux
 
 
 def play(stream, referer=None):
 
-    mpv = shutil.which("mpv")
+    sistema = platform.system()
 
-    if not mpv:
+    if "TERMUX_VERSION" in os.environ:
+        return play_termux(stream, referer)
 
-        raise FileNotFoundError(
-            "No se encontró MPV en el PATH."
-        )
+    if sistema == "Windows":
+        return play_windows(stream, referer)
 
-    comando = [
-
-        mpv,
-
-        "--force-window=yes",
-
-        "--cache=yes",
-
-        "--cache-secs=20",
-
-        "--profile=fast"
-
-    ]
-
-    if referer:
-
-        comando.append(
-            f"--http-header-fields=Referer: {referer}"
-        )
-
-    if isinstance(stream, dict):
-
-        comando.append(
-            stream["url"]
-        )
-
-    else:
-
-        comando.append(
-            stream
-        )
-
-    print("\n========== MPV ==========\n")
-
-    print("Comando:")
-
-    print(" ".join(comando))
-
-    subprocess.run(comando)
+    return play_linux(stream, referer)

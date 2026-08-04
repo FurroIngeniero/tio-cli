@@ -87,11 +87,12 @@ def reproducir(servidores):
         print(stream["url"])
 
         play(
-        stream["url"],
-        stream.get("referer")
+            stream["url"],
+            stream.get("referer")
     )
 
     else:
+
         print(stream)
 
         play(stream)
@@ -300,6 +301,7 @@ def buscar_anime():
                 print("Saliendo...")
 
                 raise SystemExit
+
 def continuar():
 
     viendo = all_anime()
