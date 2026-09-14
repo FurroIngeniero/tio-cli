@@ -6,6 +6,14 @@ from library import all_anime, get, update
 from player import play
 from providers.resolvers import resolve
 
+# MAPEO DIRECTO DE SLUGS PARA EVITAR CONFUSIONES ENTRE TEMPORADAS EN JKANIME
+SLUG_MAP_JKANIME = {
+    "high-school-dxd": "highschool-dxd",
+    "high-school-dxd-new": "highschool-dxd-new",
+    "high-school-dxd-born": "high-school-dxd-born",
+    "high-school-dxd-hero": "highschool-dxd-hero",
+}
+
 # ==============================================================================
 # UTILIDADES Y REPRODUCCIÓN
 # ==============================================================================
@@ -27,57 +35,26 @@ def elegir(maximo, mensaje, minimo=1):
         print("Opción inválida.")
 
 
-def generar_variaciones_slug(slug_tio: str) -> list:
-    """
-    Genera posibles slugs para JKAnime a partir del slug de TioAnime.
-    """
-    variaciones = [slug_tio]
-    
-    # Manejo de la saga High School DxD
-    if "high-school-dxd" in slug_tio:
-        variaciones.append(slug_tio.replace("high-school-dxd", "highschool-dxd"))
-    elif "highschool-dxd" in slug_tio:
-        variaciones.append(slug_tio.replace("highschool-dxd", "high-school-dxd"))
-        
-    return list(dict.fromkeys(variaciones))
-
-
 def obtener_servidores_combinados(slug_tio: str, anime_title: str, episodio: int):
     """
-    Obtiene los servidores de JKAnime y TioAnime de manera inteligente.
+    Obtiene los servidores de JKAnime usando el mapeo exacto de slug y TioAnime.
     """
     print(f" ⏳ Obteniendo servidores para Cap. {episodio} (JKAnime + TioAnime)...")
     servidores_totales = []
 
-    # 1. Intentar obtención desde JKAnime
-    servidores_jk = []
-    
-    # Intento A: Búsqueda dinámica por título si la función existe en jkanime.py
-    if hasattr(jkanime, 'search'):
-        try:
-            resultados_jk = jkanime.search(anime_title)
-            if resultados_jk:
-                slug_jk = resultados_jk[0].slug
-                servidores_jk = jkanime.get_servers(slug_jk, episodio) or []
-        except Exception:
-            pass
+    # 1. Determinar el slug exacto para JKAnime mediante el mapa
+    slug_jk = SLUG_MAP_JKANIME.get(slug_tio, slug_tio)
 
-    # Intento B: Si la búsqueda no dio resultados, probar con las variaciones de slug
-    if not servidores_jk:
-         slugs_a_probar = generar_variaciones_slug(slug_tio)
-         for pos_slug in slugs_a_probar:
-             try:
-                 servidores_jk = jkanime.get_servers(pos_slug, episodio) or []
-                 if servidores_jk:
-                     break
-             except Exception:
-                 continue
+    # 2. Obtención desde JKAnime
+    try:
+        servidores_jk = jkanime.get_servers(slug_jk, episodio) or []
+        for s in servidores_jk:
+            s.name = f"{s.name} (JKAnime)"
+            servidores_totales.append(s)
+    except Exception as e:
+        print(f" ⚠️ No se pudieron obtener servidores de JKAnime: {e}")
 
-    for s in servidores_jk:
-        s.name = f"{s.name} (JKAnime)"
-        servidores_totales.append(s)
-
-    # 2. Obtención desde TioAnime
+    # 3. Obtención desde TioAnime
     try:
         servidores_tio = tioanime.get_servers(slug_tio, episodio) or []
         for s in servidores_tio:
@@ -92,33 +69,39 @@ def obtener_servidores_combinados(slug_tio: str, anime_title: str, episodio: int
 def reproducir(servidores):
     print("\n========== SERVIDORES ==========\n")
 
-    # Lista de servidores soportados (MEGA EXCLUIDO DEFINITIVAMENTE)
+    # Servidores permitidos con streaming directo
     SERVIDORES_SOPORTADOS = ["voe", "yourupload", "desu", "magi", "sw", "stape", "nika", "playmudos"]
 
-    # 1. Filtrar servidores soportados y deduplicar por URL exacta
     servidores_filtrados = []
     urls_vistas = set()
 
     for servidor in servidores:
         nombre = servidor.name.lower()
+        url = servidor.url.lower()
+
+        # 1. BLOQUEO MEGA ABSOLUTO: Descarta si contiene 'mega' en el nombre o en la URL
+        if "mega" in nombre or "mega" in url or "mega.nz" in url:
+            continue
+
+        # 2. Solo agregar si está en los servidores soportados y no es una URL duplicada
         if any(p in nombre for p in SERVIDORES_SOPORTADOS):
             if servidor.url not in urls_vistas:
                 urls_vistas.add(servidor.url)
                 servidores_filtrados.append(servidor)
 
-    # 2. Si no hay servidores soportados válidos
+    # Si no hay servidores soportados válidos
     if not servidores_filtrados:
         print("No hay servidores reproducibles disponibles para este episodio.\n")
         return False
 
-    # 3. Mostrar lista limpia combinada
+    # Mostrar lista limpia combinada
     for i, servidor in enumerate(servidores_filtrados, start=1):
         print(f"{i}. 🟢 {servidor.name}")
     print("0. ↩️  Volver al menú de opciones")
 
     print()
 
-    # 4. Selección del usuario
+    # Selección del usuario
     opcion = elegir(len(servidores_filtrados), "Servidor: ", minimo=0)
     
     if opcion == 0:
