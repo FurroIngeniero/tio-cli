@@ -9,7 +9,6 @@ from utils.request import get, BASE_URL
 
 
 def search(query: str):
-
     response = get(
         "/directorio",
         params={
@@ -22,17 +21,12 @@ def search(query: str):
     results = []
 
     for article in soup.select("article.anime"):
-
         a = article.select_one("a")
-
         href = a["href"]
-
         slug = href.split("/")[-1]
-
         title = article.select_one("h3.title").get_text(strip=True)
 
         thumbnail = article.select_one("img")["src"]
-
         if thumbnail.startswith("/"):
             thumbnail = BASE_URL + thumbnail
 
@@ -49,14 +43,10 @@ def search(query: str):
 
 
 def get_anime(slug: str):
-
     response = get(f"/anime/{slug}")
-
     html = response.text
 
-    # Obtener título
     title = ""
-
     match = re.search(
         r"<title>(.*?)</title>",
         html,
@@ -64,14 +54,12 @@ def get_anime(slug: str):
     )
 
     if match:
-
         title = (
             match.group(1)
             .replace(" - TioAnime", "")
             .strip()
         )
 
-    # Obtener episodios
     match = re.search(
         r'var episodes = \[(.*?)\];',
         html,
@@ -81,36 +69,23 @@ def get_anime(slug: str):
     episodes = []
 
     if match:
-
         episodes = [
-
             int(ep.strip())
-
             for ep in match.group(1).split(",")
-
             if ep.strip().isdigit()
-
         ]
 
     return Anime(
-
         title=title,
-
         slug=slug,
-
         url=f"{BASE_URL}/anime/{slug}",
-
         thumbnail="",
-
         episodes=episodes
-
     )
 
 
 def get_servers(slug: str, episode: int):
-
     response = get(f"/ver/{slug}-{episode}")
-
     html = response.text
 
     match = re.search(
@@ -123,7 +98,6 @@ def get_servers(slug: str, episode: int):
         return []
 
     videos = match.group(1)
-
     videos = videos.replace("\\/", "/")
 
     data = json.loads(videos)
@@ -131,7 +105,6 @@ def get_servers(slug: str, episode: int):
     servers = []
 
     for video in data:
-
         servers.append(
             Server(
                 name=video[0],

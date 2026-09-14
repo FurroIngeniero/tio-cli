@@ -1,27 +1,30 @@
+from providers.resolvers.desu import DesuResolver
+from providers.resolvers.voe import VoeResolver
 from providers.resolvers.yourupload import YourUploadResolver
-from providers.resolvers.mega import MegaResolver
-from providers.resolvers.okru import OkruResolver
-from providers.resolvers.streamsb import StreamSBResolver
-from providers.resolvers.filemoon import FileMoonResolver
-from providers.resolvers.streamwish import StreamWishResolver
+
+voe_resolver = VoeResolver()
+yourupload_resolver = YourUploadResolver()
+desu_resolver = DesuResolver()
 
 
-RESOLVERS = {
-    "yourupload": YourUploadResolver(),
-    "mega": MegaResolver(),
-    "okru": OkruResolver(),
-    "streamsb": StreamSBResolver(),
-    "filemoon": FileMoonResolver(),
-    "streamwish": StreamWishResolver(),
-}
+def is_supported(server) -> bool:
+    """Devuelve True solo si el servidor tiene un extractor soportado."""
+    nombre = server.name.lower()
+    servidores_soportados = ["voe", "yourupload", "desu", "magi"]
+    return any(s in nombre for s in servidores_soportados)
 
 
 def resolve(server):
-    key = server.name.lower().replace(" ", "")
+    nombre = server.name.lower()
+    url = server.url
 
-    resolver = RESOLVERS.get(key)
+    if "voe" in nombre:
+        return voe_resolver.resolve(url)
 
-    if resolver is None:
-        raise Exception(f"No existe resolver para {server.name}")
+    elif "yourupload" in nombre:
+        return yourupload_resolver.resolve(url)
 
-    return resolver.resolve(server.url)
+    elif "desu" in nombre or "magi" in nombre:
+        return desu_resolver.resolve(url)
+
+    return None

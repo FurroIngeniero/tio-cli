@@ -1,6 +1,6 @@
 import re
 import requests
-
+from providers.resolvers.base import BaseResolver
 
 HEADERS = {
     "User-Agent": (
@@ -14,101 +14,79 @@ HEADERS = {
 }
 
 
+class YourUploadResolver(BaseResolver):
 
-def extract(url):
+    def resolve(self, url: str):
+        print("Abriendo YourUpload...")
 
-    print("Abriendo YourUpload...")
+        try:
+            session = requests.Session()
 
-
-    try:
-
-        session = requests.Session()
-
-
-        response = session.get(
-            url,
-            headers=HEADERS,
-            timeout=15
-        )
-
-
-        response.raise_for_status()
-
-
-        html = response.text
-
-
-        print(
-            "HTML recibido:",
-            len(html)
-        )
-
-        # JWPlayer file
-
-        match = re.search(
-            r"file:\s*['\"](https?://[^'\"]+\.mp4[^'\"]*)",
-            html
-        )
-
-
-        if match:
-
-            stream = match.group(1)
-
-            print(
-                "\nMP4 encontrado:"
+            response = session.get(
+                url,
+                headers=HEADERS,
+                timeout=15
             )
 
-            print(stream)
+            response.raise_for_status()
 
-
-            return {
-                "url": stream,
-                "referer": url
-            }
-
-
-
-        # OpenGraph fallback
-
-        match = re.search(
-            r'property="og:video"\s+content="([^"]+)"',
-            html
-        )
-
-
-        if match:
-
-            stream = match.group(1)
+            html = response.text
 
             print(
-                "\nOG Video encontrado:"
+                "HTML recibido:",
+                len(html)
             )
 
-            print(stream)
+            # JWPlayer file
+            match = re.search(
+                r"file:\s*['\"](https?://[^'\"]+\.mp4[^'\"]*)",
+                html
+            )
 
+            if match:
+                stream = match.group(1)
 
-            return {
-                "url": stream,
-                "referer": url
-            }
+                print(
+                    "\nMP4 encontrado:"
+                )
 
+                print(stream)
 
+                return {
+                    "url": stream,
+                    "referer": url
+                }
 
-        print(
-            "No se encontró video"
-        )
+            # OpenGraph fallback
+            match = re.search(
+                r'property="og:video"\s+content="([^"]+)"',
+                html
+            )
 
+            if match:
+                stream = match.group(1)
 
-        return None
+                print(
+                    "\nOG Video encontrado:"
+                )
 
+                print(stream)
 
+                return {
+                    "url": stream,
+                    "referer": url
+                }
 
-    except Exception as e:
+            print(
+                "No se encontró video"
+            )
 
-        print(
-            "Error YourUpload:",
-            e
-        )
+            return None
 
-        return None
+        except Exception as e:
+            print(
+                "Error YourUpload:",
+                e
+            )
+
+            return None
