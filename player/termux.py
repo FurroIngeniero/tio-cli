@@ -2,16 +2,13 @@ import subprocess
 
 
 def play(stream, referer=None):
-
     comando = [
-        "mpv",
-        stream
+        "am",
+        "start",
+        "--user", "0",
+        "-a", "android.intent.action.VIEW",
+        "-t", "application/vnd.apple.mpegurl",
+        "-d", stream
     ]
-
-    if referer:
-
-        comando.extend([
-            f"--http-header-fields=Referer: {referer}"
-        ])
 
     subprocess.run(comando)
