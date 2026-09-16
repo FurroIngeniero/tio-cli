@@ -22,7 +22,7 @@
     "high-school-dxd": {
         "title": "High School DxD",
         "episode": 1,
-        "last_seen": "2026-09-14T18:39:15.292690"
+        "last_seen": "2026-09-16T18:40:31.000662"
     },
     "high-school-dxd-new-born": {
         "title": "High School DxD BorN",
@@ -33,5 +33,10 @@
         "title": "KissxSis",
         "episode": 1,
         "last_seen": "2026-09-14T17:50:59.431494"
+    },
+    "dantalian-no-shoka": {
+        "title": "Dantalian no Shoka",
+        "episode": 8,
+        "last_seen": "2026-09-16T18:43:49.741603"
     }
 }
