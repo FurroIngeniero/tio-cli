@@ -1,37 +1,57 @@
+import os
+import shutil
 import subprocess
+import time
 
-def play(stream, referer=None):
+def play(url, referer="https://jkanime.net/"):
     if not referer:
         referer = "https://jkanime.net/"
 
-    # Headers formateados como array/mapa para compatibilidad total con MX Player y ExoPlayer
-    headers = [
-        "Referer", referer,
-        "User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
+    print("\n📱 [Termux] Abriendo reproducción en MPV para Android...")
+
+    # Paquetes oficiales conocidos de MPV para Android
+    paquetes_mpv = [
+        "is.xyz.mpv",             # MPV oficial de Android (F-Droid / Play Store)
+        "net.scriptbee.wmv",       # Distribución alternativa de MPV
+        "org.videolan.vlc"         # VLC como alternativa inmediata
     ]
 
-    comando = [
+    # 1. INTENTO DIRECTO: Forzar el inicio de la app MPV especificando el paquete
+    for paquete in paquetes_mpv:
+        cmd_app = [
+            "am", "start",
+            "--user", "0",
+            "-a", "android.intent.action.VIEW",
+            "-d", url,
+            "-t", "video/*",
+            "-p", paquete,
+            "-e", "http-header-fields", f"Referer: {referer}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        ]
+        
+        proceso = subprocess.run(cmd_app, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if proceso.returncode == 0:
+            return True
+
+    # 2. SI FALLA: Usar Intent tipo MIME video/* sin fijar navegador (Muestra "Abrir con...")
+    cmd_mimetype = [
         "am", "start",
         "--user", "0",
         "-a", "android.intent.action.VIEW",
-        "-t", "application/vnd.apple.mpegurl",
-        "-d", stream,
-        
-        # 1. Compatibilidad ExoPlayer / Just Player / MPV
-        "-e", "build_headers", f"Referer: {referer}",
-        
-        # 2. Compatibilidad VLC Android
-        "-e", "http-referrer", referer,
-        
-        # 3. Compatibilidad MX Player / MX Player Pro
-        "--esa", "headers", ",".join(headers),
-        
-        # 4. User-Agent global
-        "-e", "user_agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36"
+        "-setDataAndType", url, "video/*",
+        "-e", "http-header-fields", f"Referer: {referer}\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     ]
+    
+    proceso_mime = subprocess.run(cmd_mimetype, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if proceso_mime.returncode == 0:
+        return True
 
-    try:
-        # Popen evita que la consola de Termux se quede enganchada esperando a la App
-        subprocess.Popen(comando)
-    except Exception as e:
-        print(f"Error al abrir la App en Termux: {e}")
+    # 3. ÚLTIMO RECURSO: Intent de Termux API
+    if shutil.which("termux-open"):
+        try:
+            subprocess.run(["termux-open", "--content-type", "video/*", url])
+            return True
+        except Exception:
+            pass
+
+    print("❌ No se pudo abrir MPV. Asegúrate de tener instalada la App 'mpv' en tu Android.")
+    return False

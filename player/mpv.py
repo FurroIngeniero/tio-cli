@@ -4,26 +4,31 @@ import subprocess
 import sys
 import time
 
+
 def obtener_ruta_mpv():
-    r"""
-    Prioriza el ejecutable 'mpv.exe' ubicado en la carpeta bin/ del proyecto
-    (D:\Usuarios\Documents\tio-cli\bin\mpv.exe).
-    """
-    # 1. Obtener la carpeta raíz del proyecto (tio-cli/) a partir de este archivo
+    """Busca y valida la ruta de MPV según el sistema operativo actual."""
     raiz_proyecto = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    ruta_bin_local = os.path.join(raiz_proyecto, "bin", "mpv.exe")
 
-    # 2. Comprobar si existe en tio-cli/bin/mpv.exe
-    if os.path.exists(ruta_bin_local):
-        # Añade la carpeta bin al PATH temporal de Python
-        directorio = os.path.dirname(ruta_bin_local)
-        os.environ["PATH"] += os.path.pathsep + directorio
-        return ruta_bin_local
+    # --- 1. ENTORNO WINDOWS ---
+    if sys.platform.startswith("win"):
+        ruta_bin_local = os.path.join(raiz_proyecto, "bin", "mpv.exe")
+        if os.path.exists(ruta_bin_local):
+            directorio = os.path.dirname(ruta_bin_local)
+            os.environ["PATH"] += os.path.pathsep + directorio
+            return ruta_bin_local
 
-    # 3. Fallback: Buscar en el PATH global del sistema
-    ruta_global = shutil.which("mpv")
-    if ruta_global:
-        return ruta_global
+        return shutil.which("mpv")
+
+    # --- 2. ENTORNO LINUX / WSL / TERMUX ---
+    # NUNCA se debe intentar ejecutar binarios .exe en sistemas POSIX
+    ruta_linux = shutil.which("mpv")
+    if ruta_linux:
+        return ruta_linux
+
+    # Fallback para un binario compilado o colocado en bin/ para Linux
+    ruta_bin_nativa = os.path.join(raiz_proyecto, "bin", "mpv")
+    if os.path.exists(ruta_bin_nativa) and os.access(ruta_bin_nativa, os.X_OK):
+        return ruta_bin_nativa
 
     return None
 
@@ -35,13 +40,12 @@ def play(url, referer="https://jkanime.net/", max_retries=3):
     mpv_path = obtener_ruta_mpv()
 
     if not mpv_path:
-        print("\n❌ Error: No se encontró 'mpv.exe' en la carpeta 'bin/'.")
-        print(r"💡 Asegúrate de que el archivo existe en: D:\Usuarios\Documents\tio-cli\bin\mpv.exe" + "\n")
+        # Retornamos False de forma limpia para permitir que player.py conmute a VLC
         return False
 
     cmd = [
         mpv_path,
-        # 1. ANTI-STALL Y DESCONEXIÓN RÁPIDA (Timeout agresivo a los 2s)
+        # 1. ANTI-STALL Y DESCONEXIÓN RÁPIDA (Timeout a los 2s)
         "--demuxer-lavf-o=http_persistent=0",
         "--demuxer-lavf-o=reconnect=1",
         "--demuxer-lavf-o=reconnect_streamed=1",
@@ -49,27 +53,27 @@ def play(url, referer="https://jkanime.net/", max_retries=3):
         "--demuxer-lavf-o=rw_timeout=2000000",
         "--demuxer-lavf-o=err_detect=ignore_err",
         "--demuxer-lavf-o=fflags=+discardcorrupt",
-        
-        # 2. BUFFER UNIVERSAL Y DESCARTE DE FRAMES CORRUPTOS
+        # 2. BUFFER UNIVERSAL Y RECOVER
         "--demuxer-max-bytes=10M",
         "--demuxer-max-back-bytes=5M",
         "--framedrop=decoder",
-        
-        # 3. CABECERAS REQUERIDAS POR NIKA / PLAYMUDOS
+        # 3. CABECERAS HTTP PARA NIKA / PLAYMUDOS
         f"--http-header-fields=Referer: {referer}",
         "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        
-        url
+        url,
     ]
 
     intentos = 0
     while intentos < max_retries:
         intentos += 1
-        proceso = subprocess.run(cmd)
-        
-        # Si el usuario cierra MPV normalmente (código 0), termina
-        if proceso.returncode == 0:
-            return True
+        try:
+            proceso = subprocess.run(cmd)
+
+            # Si el usuario cierra MPV normalmente (código 0), termina
+            if proceso.returncode == 0:
+                return True
+        except Exception:
+            return False
 
         if intentos < max_retries:
             time.sleep(2)
