@@ -12,7 +12,7 @@
     "tengen-toppa": {
         "title": "Tengen Toppa Gurren Lagann",
         "episode": 6,
-        "last_seen": "2026-08-04T15:50:36.876328"
+        "last_seen": "2026-09-16T22:14:46.521709"
     },
     "boku-no-hero-academia-i-am-a-hero-too": {
         "title": "Boku no Hero Academia: I Am a Hero Too",
@@ -22,7 +22,7 @@
     "high-school-dxd": {
         "title": "High School DxD",
         "episode": 1,
-        "last_seen": "2026-09-16T18:40:31.000662"
+        "last_seen": "2026-09-16T22:14:15.431249"
     },
     "high-school-dxd-new-born": {
         "title": "High School DxD BorN",
@@ -32,11 +32,21 @@
     "kiss-x-sis": {
         "title": "KissxSis",
         "episode": 1,
-        "last_seen": "2026-09-14T17:50:59.431494"
+        "last_seen": "2026-09-16T22:15:16.591661"
     },
     "dantalian-no-shoka": {
         "title": "Dantalian no Shoka",
-        "episode": 8,
-        "last_seen": "2026-09-16T18:43:49.741603"
+        "episode": 9,
+        "last_seen": "2026-09-16T20:21:24.061967"
+    },
+    "yani-neko": {
+        "title": "Yani Neko",
+        "episode": 1,
+        "last_seen": "2026-09-16T22:17:27.809758"
+    },
+    "dragon-ball": {
+        "title": "Dragon Ball",
+        "episode": 1,
+        "last_seen": "2026-09-16T22:31:56.370734"
     }
 }
