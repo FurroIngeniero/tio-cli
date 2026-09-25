@@ -38,4 +38,4 @@ Ejecuta el script principal desde la terminal (Powershell/CMD para windows, Term
 
 📄 Licencia
 
-Este proyecto fue desarrollado para fines educativos y de entretenimiento personal. Siéntete libre de clonarlo, adaptarlo o contribuir con mejoras, cualquier intento de monetizacion con este proyecto queda estrictamente prohibido.
+Este proyecto fue desarrollado para fines educativos y de entretenimiento personal. Siéntete libre de contribuir con mejoras, cualquier intento de monetización con este proyecto queda estrictamente prohibido.
