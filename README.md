@@ -22,7 +22,6 @@ Asegúrate de contar con las siguientes herramientas instaladas en tu sistema:
 2. **MPV Player** (debe estar disponible en las variables de entorno / `PATH` del sistema).
    - *Linux:* `sudo apt install mpv` / `sudo pacman -S mpv`
    - *Windows:* Descargar de [mpv.io](https://mpv.io/) y agregar a las variables de entorno.
-   - *macOS:* `brew install mpv`
 3. **yt-dlp** *(Recomendado)*: Permite a MPV procesar y extraer transmisiones desde los incrustados (iframes) de los reproductores.
    ```bash
    pip install yt-dlp
