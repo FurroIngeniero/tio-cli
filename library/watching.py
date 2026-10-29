@@ -66,7 +66,6 @@ def delete_global_tag(tag):
 
 def set_anime_tags(slug, tags_list):
     data = load()
-    # Si el anime no está guardado aún en watching.json, lo inicializamos
     if slug not in data:
         data[slug] = {
             "title": slug.replace("-", " ").title(),
@@ -85,15 +84,20 @@ def update(slug, title, episode, total_episodes=0, is_completed=False):
     data = load()
     entry = data.get(slug, {})
     
-    tags = entry.get("tags", [])
+    tags = set(entry.get("tags", []))
     prev_total = entry.get("total_episodes", 0)
+    nuevo_total = max(prev_total, total_episodes)
+
+    if is_completed and nuevo_total > 0 and episode >= nuevo_total:
+        create_global_tag("Completado")
+        tags.add("Completado")
 
     data[slug] = {
         "title": title,
         "episode": episode,
         "last_seen": datetime.now().isoformat(),
-        "tags": tags,
-        "total_episodes": max(prev_total, total_episodes),
+        "tags": sorted(list(tags)),
+        "total_episodes": nuevo_total,
         "is_completed": is_completed
     }
 

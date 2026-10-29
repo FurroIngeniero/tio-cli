@@ -7,7 +7,6 @@ from library import (
 from player import play
 from providers.resolvers import resolve
 
-# Mapeo directo para excepciones de slugs y secuelas entre TioAnime y JKAnime
 SLUG_MAP_JKANIME = {
     "high-school-dxd": "highschool-dxd",
     "high-school-dxd-new": "highschool-dxd-new",
@@ -452,18 +451,39 @@ def buscar_anime():
 
     opciones_anime_seleccionado(slug_principal, titulo_principal, episodios, is_completed)
 
-def continuar(filtro_etiqueta=None):
+def continuar(filtro_etiqueta=None, solo_completados=False):
     while True:
         viendo = all_anime()
-        if filtro_etiqueta:
+        
+        if solo_completados:
+            # Sección independiente: Mostrar únicamente los animes completados
+            viendo = [
+                a for a in viendo 
+                if (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0)) 
+                or "Completado" in a.get("tags", [])
+            ]
+            titulo_seccion = "          ANIMES COMPLETADOS            "
+            msg_vacio = " 📭 No tienes animes registrados como completados."
+        elif filtro_etiqueta:
+            # Filtrado por etiqueta personalizada
             viendo = [a for a in viendo if filtro_etiqueta in a.get("tags", [])]
+            titulo_seccion = f"          ETIQUETA: {filtro_etiqueta.upper()}          "
+            msg_vacio = f" 📭 No hay animes registrados bajo la etiqueta '{filtro_etiqueta}'."
+        else:
+            # 'Continuar viendo': Oculta los animes finalizados que ya se completaron
+            viendo = [
+                a for a in viendo 
+                if not (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0))
+            ]
+            titulo_seccion = "          CONTINUAR VIENDO              "
+            msg_vacio = " 📭 No tienes animes pendientes por continuar."
 
         if not viendo:
-            print("\n 📭 No hay animes registrados" + (f" bajo la etiqueta '{filtro_etiqueta}'." if filtro_etiqueta else "."))
+            print(f"\n{msg_vacio}")
             return
 
         print("\n========================================")
-        print("          CONTINUAR VIENDO              ")
+        print(titulo_seccion)
         print("========================================\n")
 
         for i, a in enumerate(viendo, 1):
@@ -556,14 +576,16 @@ def main():
         print("               TIO-CLI                  ")
         print("========================================\n")
         print(" 1. ▶️  Continuar viendo")
-        print(" 2. 🔍 Buscar anime")
-        print(" 3. 🏷️  Gestionar etiquetas")
+        print(" 2. 🏁 Animes completados")
+        print(" 3. 🔍 Buscar anime")
+        print(" 4. 🏷️  Gestionar etiquetas")
         print(" 0. 🚪 Salir")
 
-        opcion = elegir(3, "Selecciona una opción: ", minimo=0)
+        opcion = elegir(4, "Selecciona una opción: ", minimo=0)
         if opcion == 1: continuar()
-        elif opcion == 2: buscar_anime()
-        elif opcion == 3: menu_gestionar_etiquetas_global()
+        elif opcion == 2: continuar(solo_completados=True)
+        elif opcion == 3: buscar_anime()
+        elif opcion == 4: menu_gestionar_etiquetas_global()
         elif opcion == 0:
             print("\n ¡Hasta luego!\n")
             break
