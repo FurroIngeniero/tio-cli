@@ -18,7 +18,12 @@ def load():
     except Exception:
         return {}
 
-
+def remove(slug):
+    data = load()
+    if slug in data:
+        del data[slug]
+        save(data)
+        
 def save(data):
     with open(WATCHING_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)

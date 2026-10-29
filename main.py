@@ -1,7 +1,7 @@
 import os, re, unicodedata, subprocess
 import providers.tioanime as tioanime, providers.jkanime as jkanime
 from library import (
-    all_anime, get, update, 
+    all_anime, get, update, remove,
     get_global_tags, create_global_tag, delete_global_tag, set_anime_tags
 )
 from player import play
@@ -374,9 +374,10 @@ def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
         
         print("\n 1. ▶️  Ver capítulos / Reproducir")
         print(" 2. 🏷️  Asignar / Crear etiquetas")
+        print(" 3. 🗑️  Borrar anime de mi lista")
         print(" 0. ↩️  Volver atrás")
 
-        op = elegir(2, "Selecciona una opción: ", minimo=0)
+        op = elegir(3, "Selecciona una opción: ", minimo=0)
         if op == 0:
             break
         elif op == 1:
@@ -393,6 +394,12 @@ def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
             if res == "MENU": break
         elif op == 2:
             menu_asignar_etiquetas_anime(slug, title)
+        elif op == 3:
+            confirmar = input(f"\n ⚠️ ¿Estás seguro de que deseas eliminar '{title}' de tu lista? (S/N): ").strip().lower()
+            if confirmar == 's':
+                remove(slug)
+                print(f"\n 🗑️ '{title}' ha sido eliminado de tu historial y listas.")
+                break
 
 def buscar_anime():
     query = input("\n 🔍 Buscar anime (o presiona Enter para cancelar): ").strip()
@@ -456,7 +463,6 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
         viendo = all_anime()
         
         if solo_completados:
-            # Sección independiente: Mostrar únicamente los animes completados
             viendo = [
                 a for a in viendo 
                 if (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0)) 
@@ -465,12 +471,10 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             titulo_seccion = "          ANIMES COMPLETADOS            "
             msg_vacio = " 📭 No tienes animes registrados como completados."
         elif filtro_etiqueta:
-            # Filtrado por etiqueta personalizada
             viendo = [a for a in viendo if filtro_etiqueta in a.get("tags", [])]
             titulo_seccion = f"          ETIQUETA: {filtro_etiqueta.upper()}          "
             msg_vacio = f" 📭 No hay animes registrados bajo la etiqueta '{filtro_etiqueta}'."
         else:
-            # 'Continuar viendo': Oculta los animes finalizados que ya se completaron
             viendo = [
                 a for a in viendo 
                 if not (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0))
