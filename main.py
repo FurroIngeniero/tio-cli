@@ -1,4 +1,4 @@
-import os, re, unicodedata, subprocess
+import os, sys, re, unicodedata, subprocess
 import providers.tioanime as tioanime, providers.jkanime as jkanime
 from library import (
     all_anime, get, update, remove,
@@ -18,6 +18,9 @@ SLUG_MAP_JKANIME = {
     "kono-subarashii-sekai-ni-shukufuku-wo-2": "kono-subarashii-sekai-ni-shukufuku-wo-2",
     "kono-subarashii-sekai-ni-shukufuku-wo-3": "kono-subarashii-sekai-ni-shukufuku-wo-3",
 }
+
+def limpiar_pantalla():
+    os.system("cls" if os.name == "nt" else "clear")
 
 def elegir(maximo, mensaje, minimo=1):
     while True:
@@ -153,7 +156,8 @@ def obtener_servidores_combinados(slug_tio, anime_title, episodio):
     return servidores
 
 def reproducir(servidores):
-    print("\n========================================")
+    limpiar_pantalla()
+    print("========================================")
     print("             SERVIDORES                 ")
     print("========================================\n")
     soportados = ("voe", "yourupload", "desu", "magi", "sw", "stape", "nika", "playmudos")
@@ -168,6 +172,7 @@ def reproducir(servidores):
 
     if not filtrados:
         print(" ❌ No hay servidores reproducibles disponibles para este episodio.\n")
+        input("\n Presiona Enter para continuar...")
         return False
 
     for i, s in enumerate(filtrados, 1):
@@ -180,7 +185,8 @@ def reproducir(servidores):
     if opcion == 0: return False
 
     servidor = filtrados[opcion - 1]
-    print("\n========================================")
+    limpiar_pantalla()
+    print("========================================")
     print(f" Reproduciendo: {servidor.name}")
     print("========================================\n")
 
@@ -188,10 +194,12 @@ def reproducir(servidores):
         stream = resolve(servidor)
     except Exception as e:
         print(f" ❌ Error al extraer el stream: {e}")
+        input("\n Presiona Enter para continuar...")
         return False
 
     if not stream:
         print(" ❌ No se pudo extraer el stream.")
+        input("\n Presiona Enter para continuar...")
         return False
 
     url = stream["url"] if isinstance(stream, dict) else stream
@@ -201,11 +209,12 @@ def reproducir(servidores):
 
 def menu_asignar_etiquetas_anime(anime_slug, anime_title):
     while True:
+        limpiar_pantalla()
         global_tags = get_global_tags()
         data = get(anime_slug) or {}
         tags_asignadas = set(data.get("tags", []))
 
-        print("\n========================================")
+        print("========================================")
         print(f" ASIGNAR ETIQUETAS: {anime_title}")
         print("========================================\n")
         
@@ -228,7 +237,6 @@ def menu_asignar_etiquetas_anime(anime_slug, anime_title):
 
         if raw == "0" or not raw:
             set_anime_tags(anime_slug, list(tags_asignadas))
-            print("\n 🏷️  Etiquetas guardadas correctamente.")
             break
 
         if raw == "+" or raw.startswith("+"):
@@ -242,7 +250,6 @@ def menu_asignar_etiquetas_anime(anime_slug, anime_title):
                 
                 tags_asignadas.add(tag_formateada)
                 set_anime_tags(anime_slug, list(tags_asignadas))
-                print(f"\n ✨ Etiqueta '{tag_formateada}' creada y asignada con éxito.")
             continue
 
         partes = [p.strip() for p in raw.split(",") if p.strip().isdigit()]
@@ -257,15 +264,15 @@ def menu_asignar_etiquetas_anime(anime_slug, anime_title):
                         tags_asignadas.add(tag_sel)
 
             set_anime_tags(anime_slug, list(tags_asignadas))
-            print("\n 🏷️  Cambios aplicados.")
 
 def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_completed=True):
     episodio = ep_inicial
     total_eps = max(episodios) if episodios else 0
 
     while True:
+        limpiar_pantalla()
         if episodio is None:
-            print("\n========================================")
+            print("========================================")
             print("             CAPÍTULOS                  ")
             print("========================================\n")
             for i, ep in enumerate(episodios, 1): print(f" {i}. Episodio {ep}")
@@ -285,13 +292,15 @@ def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_c
 
         if not servidores:
             print(" ❌ No hay servidores disponibles para este capítulo.")
+            input("\n Presiona Enter para continuar...")
             episodio = None
             continue
 
         reproducir(servidores)
 
         while True:
-            print("\n========================================")
+            limpiar_pantalla()
+            print("========================================")
             print("              OPCIONES                  ")
             print("========================================\n")
             print(" 1. ▶️  Siguiente capítulo")
@@ -307,11 +316,15 @@ def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_c
             pos = episodios.index(episodio)
             if opcion == 1:
                 if pos < len(episodios) - 1: episodio = episodios[pos + 1]
-                else: print("\n 🔔 Ya estás en el último capítulo disponible.")
+                else: 
+                    print("\n 🔔 Ya estás en el último capítulo disponible.")
+                    input("\n Presiona Enter para continuar...")
                 break
             elif opcion == 2:
                 if pos > 0: episodio = episodios[pos - 1]
-                else: print("\n 🔔 Ya estás en el primer capítulo.")
+                else: 
+                    print("\n 🔔 Ya estás en el primer capítulo.")
+                    input("\n Presiona Enter para continuar...")
                 break
             elif opcion in (3, 4, 5):
                 if opcion == 3: episodio = None
@@ -361,11 +374,12 @@ def obtener_episodios_unificados(seleccion):
 
 def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
     while True:
+        limpiar_pantalla()
         progreso = get(slug)
         ep_visto = progreso.get("episode") if progreso else None
         tags = progreso.get("tags", []) if progreso else []
         
-        print("\n========================================")
+        print("========================================")
         print(f" ANIME: {title}")
         print("========================================\n")
         if ep_visto and episodios:
@@ -383,7 +397,11 @@ def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
         elif op == 1:
             ep_inicial = None
             if ep_visto:
-                print("\n 1. Continuar desde el último capítulo visto")
+                limpiar_pantalla()
+                print("========================================")
+                print(f" CONTINUAR: {title}")
+                print("========================================\n")
+                print(" 1. Continuar desde el último capítulo visto")
                 print(" 2. Elegir un capítulo específico")
                 print(" 0. Cancelar")
                 sub_op = elegir(2, "Opción: ", minimo=0)
@@ -395,13 +413,15 @@ def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
         elif op == 2:
             menu_asignar_etiquetas_anime(slug, title)
         elif op == 3:
-            confirmar = input(f"\n ⚠️ ¿Estás seguro de que deseas eliminar '{title}' de tu lista? (S/N): ").strip().lower()
+            confirmar = input(f"\n ⚠️ ¿Estás seguro de que deseas eliminar '{title}' de tu lista? (s/N): ").strip().lower()
             if confirmar == 's':
                 remove(slug)
                 print(f"\n 🗑️ '{title}' ha sido eliminado de tu historial y listas.")
+                input("\n Presiona Enter para continuar...")
                 break
 
 def buscar_anime():
+    limpiar_pantalla()
     query = input("\n 🔍 Buscar anime (o presiona Enter para cancelar): ").strip()
     if not query: return
     print("\n ⏳ Buscando resultados en TioAnime y JKAnime...\n")
@@ -437,9 +457,11 @@ def buscar_anime():
 
     if not resultados_agrupados:
         print(" ❌ No se encontraron resultados.")
+        input("\n Presiona Enter para continuar...")
         return
 
-    print("\n========================================")
+    limpiar_pantalla()
+    print("========================================")
     print("             RESULTADOS                 ")
     print("========================================\n")
     for i, item in enumerate(resultados_agrupados, 1):
@@ -460,6 +482,7 @@ def buscar_anime():
 
 def continuar(filtro_etiqueta=None, solo_completados=False):
     while True:
+        limpiar_pantalla()
         viendo = all_anime()
         
         if solo_completados:
@@ -484,9 +507,10 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
 
         if not viendo:
             print(f"\n{msg_vacio}")
+            input("\n Presiona Enter para continuar...")
             return
 
-        print("\n========================================")
+        print("========================================")
         print(titulo_seccion)
         print("========================================\n")
 
@@ -521,6 +545,7 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
 
         if not anime_real:
             print(" ⚠️ No se pudo encontrar la información de este anime.")
+            input("\n Presiona Enter para continuar...")
             return
 
         is_completed = getattr(anime_real, "is_completed", True)
@@ -528,8 +553,9 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
 
 def menu_gestionar_etiquetas_global():
     while True:
+        limpiar_pantalla()
         tags = get_global_tags()
-        print("\n========================================")
+        print("========================================")
         print("         GESTIONAR ETIQUETAS            ")
         print("========================================\n")
         print(" 1. ➕ Crear nueva etiqueta")
@@ -545,11 +571,14 @@ def menu_gestionar_etiquetas_global():
             if nueva:
                 create_global_tag(nueva)
                 print(f" 🏷️ Etiqueta '{nueva}' creada con éxito.")
+                input("\n Presiona Enter para continuar...")
         elif op == 2:
             if not tags:
                 print(" 📭 No hay etiquetas registradas para eliminar.")
+                input("\n Presiona Enter para continuar...")
                 continue
-            print("\n========================================")
+            limpiar_pantalla()
+            print("========================================")
             print("          ELIMINAR ETIQUETA             ")
             print("========================================\n")
             for i, t in enumerate(tags, 1):
@@ -560,11 +589,14 @@ def menu_gestionar_etiquetas_global():
                 tag_del = tags[idx - 1]
                 delete_global_tag(tag_del)
                 print(f" 🗑️ Etiqueta '{tag_del}' eliminada.")
+                input("\n Presiona Enter para continuar...")
         elif op == 3:
             if not tags:
                 print(" 📭 No hay etiquetas creadas todavía.")
+                input("\n Presiona Enter para continuar...")
                 continue
-            print("\n========================================")
+            limpiar_pantalla()
+            print("========================================")
             print("          SELECCIONA ETIQUETA           ")
             print("========================================\n")
             for i, t in enumerate(tags, 1):
@@ -576,7 +608,8 @@ def menu_gestionar_etiquetas_global():
 
 def main():
     while True:
-        print("\n========================================")
+        limpiar_pantalla()
+        print("========================================")
         print("               TIO-CLI                  ")
         print("========================================\n")
         print(" 1. ▶️  Continuar viendo")
@@ -591,6 +624,7 @@ def main():
         elif opcion == 3: buscar_anime()
         elif opcion == 4: menu_gestionar_etiquetas_global()
         elif opcion == 0:
+            limpiar_pantalla()
             print("\n ¡Hasta luego!\n")
             break
 
