@@ -2,6 +2,7 @@ from .watching import (
     load,
     save,
     update,
+    sync_anime_status,
     get,
     all_anime,
     remove,

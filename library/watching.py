@@ -18,12 +18,7 @@ def load():
     except Exception:
         return {}
 
-def remove(slug):
-    data = load()
-    if slug in data:
-        del data[slug]
-        save(data)
-        
+
 def save(data):
     with open(WATCHING_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
@@ -93,9 +88,13 @@ def update(slug, title, episode, total_episodes=0, is_completed=False):
     prev_total = entry.get("total_episodes", 0)
     nuevo_total = max(prev_total, total_episodes)
 
+    # Solo es "Completado" si la serie ya terminó de emitirse Y viste hasta el último capítulo
     if is_completed and nuevo_total > 0 and episode >= nuevo_total:
         create_global_tag("Completado")
         tags.add("Completado")
+    else:
+        # Si está en emisión o salieron capítulos nuevos, quitamos "Completado"
+        tags.discard("Completado")
 
     data[slug] = {
         "title": title,
@@ -106,6 +105,30 @@ def update(slug, title, episode, total_episodes=0, is_completed=False):
         "is_completed": is_completed
     }
 
+    save(data)
+
+
+def sync_anime_status(slug, total_episodes, is_completed):
+    """Actualiza el total de capítulos disponibles y el estado de emisión sin cambiar el progreso visto."""
+    data = load()
+    if slug not in data:
+        return
+
+    entry = data[slug]
+    episode = entry.get("episode", 0)
+    prev_total = entry.get("total_episodes", 0)
+    nuevo_total = max(prev_total, total_episodes)
+    tags = set(entry.get("tags", []))
+
+    if is_completed and nuevo_total > 0 and episode >= nuevo_total:
+        create_global_tag("Completado")
+        tags.add("Completado")
+    else:
+        tags.discard("Completado")
+
+    entry["total_episodes"] = nuevo_total
+    entry["is_completed"] = is_completed
+    entry["tags"] = sorted(list(tags))
     save(data)
 
 

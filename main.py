@@ -1,7 +1,7 @@
 import os, sys, re, unicodedata, subprocess
 import providers.tioanime as tioanime, providers.jkanime as jkanime
 from library import (
-    all_anime, get, update, remove,
+    all_anime, get, update, sync_anime_status, remove,
     get_global_tags, create_global_tag, delete_global_tag, set_anime_tags
 )
 from player import play
@@ -10,7 +10,7 @@ from providers.resolvers import resolve
 SLUG_MAP_JKANIME = {
     "high-school-dxd": "highschool-dxd",
     "high-school-dxd-new": "highschool-dxd-new",
-    "high-school-dxd-born": "high-school-dxd-born",
+    "high-school-dxd-born": "highschool-dxd-born",
     "high-school-dxd-hero": "highschool-dxd-hero",
     "ranma": "ranma-",
     "kusuriya-no-hitogoto": "kusuriya-no-hitorigoto",
@@ -340,7 +340,9 @@ def obtener_episodios_unificados(seleccion):
 
     if seleccion.get("slug_tio"):
         a_tio = tioanime.get_anime(seleccion["slug_tio"])
-        if a_tio and a_tio.episodes: eps.update(a_tio.episodes)
+        if a_tio and a_tio.episodes:
+            eps.update(a_tio.episodes)
+            is_completed = getattr(a_tio, "is_completed", True)
 
     if seleccion.get("slug_jk"):
         slug_actual = seleccion["slug_jk"]
@@ -371,6 +373,23 @@ def obtener_episodios_unificados(seleccion):
 
     lista_eps = sorted(list(eps)) if eps else []
     return lista_eps, is_completed
+
+def verificar_nuevos_capitulos():
+    """Comprueba animes en emisión (o marcados como no finalizados) para detectar episodios nuevos."""
+    animes = all_anime()
+    en_emision = [a for a in animes if not a.get("is_completed", True)]
+    if not en_emision:
+        return
+
+    print(" ⏳ Comprobando nuevos capítulos de series en emisión...")
+    for a in en_emision:
+        slug = a["slug"]
+        info = tioanime.get_anime(slug) or jkanime.get_anime(slug)
+        if info and info.episodes:
+            nuevo_total = max(info.episodes)
+            estado_final = getattr(info, "is_completed", False)
+            if nuevo_total > a.get("total_episodes", 0) or estado_final != a.get("is_completed", False):
+                sync_anime_status(slug, nuevo_total, estado_final)
 
 def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
     while True:
@@ -481,6 +500,9 @@ def buscar_anime():
     opciones_anime_seleccionado(slug_principal, titulo_principal, episodios, is_completed)
 
 def continuar(filtro_etiqueta=None, solo_completados=False):
+    limpiar_pantalla()
+    verificar_nuevos_capitulos()
+
     while True:
         limpiar_pantalla()
         viendo = all_anime()
@@ -488,8 +510,7 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
         if solo_completados:
             viendo = [
                 a for a in viendo 
-                if (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0)) 
-                or "Completado" in a.get("tags", [])
+                if (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0))
             ]
             titulo_seccion = "          ANIMES COMPLETADOS            "
             msg_vacio = " 📭 No tienes animes registrados como completados."
@@ -498,6 +519,7 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             titulo_seccion = f"          ETIQUETA: {filtro_etiqueta.upper()}          "
             msg_vacio = f" 📭 No hay animes registrados bajo la etiqueta '{filtro_etiqueta}'."
         else:
+            # Muestra todos los que NO estén completados (incluye los que están en emisión aunque vayas al día)
             viendo = [
                 a for a in viendo 
                 if not (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0))
@@ -525,6 +547,8 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             if ep_totales > 0:
                 if not is_completed and ep_visto < ep_totales:
                     estado_str = f" 🆕 ¡Nuevos capítulos! ({ep_visto}/{ep_totales})"
+                elif not is_completed and ep_visto >= ep_totales:
+                    estado_str = f" ⏳ En emisión - Al día ({ep_visto}/{ep_totales})"
                 elif is_completed and ep_visto >= ep_totales:
                     estado_str = f" 🏁 [Cap. Final: {ep_visto}]"
                 else:
@@ -549,6 +573,10 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             return
 
         is_completed = getattr(anime_real, "is_completed", True)
+        # Sincronizar al abrirlo por si hubo cambios recientes
+        if anime_real.episodes:
+            sync_anime_status(anime_real.slug, max(anime_real.episodes), is_completed)
+
         opciones_anime_seleccionado(anime_real.slug, anime_real.title, sorted(anime_real.episodes), is_completed)
 
 def menu_gestionar_etiquetas_global():
