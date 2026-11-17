@@ -14,6 +14,7 @@ SLUG_MAP_JKANIME = {
     "high-school-dxd-hero": "highschool-dxd-hero",
     "ranma": "ranma-",
     "kusuriya-no-hitogoto": "kusuriya-no-hitorigoto",
+    "kusuriya-no-hitorigoto": "kusuriya-no-hitorigoto",
     "kono-subarashii-sekai-ni-shukufuku-wo": "kono-subarashii-sekai-ni-shukufuku-wo",
     "kono-subarashii-sekai-ni-shukufuku-wo-2": "kono-subarashii-sekai-ni-shukufuku-wo-2",
     "kono-subarashii-sekai-ni-shukufuku-wo-3": "kono-subarashii-sekai-ni-shukufuku-wo-3",
@@ -57,7 +58,7 @@ def son_titulos_similares(t1, t2):
     base2 = limpiar_temporadas_titulo(t2)
     
     if not base1 or not base2: return False
-    if base1 == base2 or base1 in base2 or base2 in base1:
+    if base1 == base2:
         return True
         
     palabras1 = set(w for w in base1.split() if len(w) > 2)
@@ -66,12 +67,89 @@ def son_titulos_similares(t1, t2):
     if not palabras1 or not palabras2: return False
         
     interseccion = palabras1.intersection(palabras2)
-    min_len = min(len(palabras1), len(palabras2))
+    union = palabras1.union(palabras2)
     
-    return min_len > 0 and (len(interseccion) / min_len) >= 0.7
+    # Usar similitud de Jaccard (>= 0.75) para evitar fusionar series distintas como "Black Jack" y "Young Black Jack"
+    return len(union) > 0 and (len(interseccion) / len(union)) >= 0.75
+
+def sufijo_ordinal(num):
+    if num == 1: return "1st"
+    if num == 2: return "2nd"
+    if num == 3: return "3rd"
+    return f"{num}th"
+
+def extraer_base_y_temporada(slug):
+    m = re.search(r"-(?:season-)?(\d+)(?:st|nd|rd|th)?(?:-season)?$", slug)
+    if m:
+        num = int(m.group(1))
+        base = slug[:m.start()]
+        return base, num
+    return slug, None
+
+def extraer_numero_temporada_texto(texto):
+    t = normalizar_titulo(texto).replace("-", " ")
+    patrones = [
+        r"\bseason\s*(\d+)\b",
+        r"\b(\d+)(?:st|nd|rd|th)?\s*season\b",
+        r"\bs(\d+)\b",
+        r"\bpart(?:e)?\s*(\d+)\b",
+        r"\b(\d+)(?:st|nd|rd|th)?\s*part(?:e)?\b",
+    ]
+    for p in patrones:
+        m = re.search(p, t)
+        if m:
+            return int(m.group(1))
+    m_fin = re.search(r"\b(\d+)\s*$", t)
+    if m_fin:
+        num = int(m_fin.group(1))
+        if 2 <= num <= 15:
+            return num
+    return 1
+
+def generar_candidatos_temporada(slug_base, num_season):
+    if num_season <= 1:
+        return [slug_base]
+    ord_str = sufijo_ordinal(num_season)
+    return [
+        f"{slug_base}-{ord_str}-season",
+        f"{slug_base}-{num_season}",
+        f"{slug_base}-season-{num_season}",
+        f"{slug_base}-part-{num_season}",
+    ]
+
+def buscar_en_jkanime_robusto(query):
+    resultados = []
+    vistos = set()
+    q_strip = query.strip()
+    consultas = [q_strip, q_strip.replace(" ", "-"), q_strip.replace(" ", "")]
+    limpia = limpiar_temporadas_titulo(query)
+    if limpia:
+        consultas.extend([limpia, limpia.replace(" ", "-")])
+
+    for q in dict.fromkeys(consultas):
+        if not q: continue
+        try:
+            for r in (jkanime.search(q) or []):
+                if r.slug not in vistos:
+                    vistos.add(r.slug)
+                    resultados.append(r)
+        except Exception:
+            pass
+
+    # Respaldo directo por slug exacto (ej. "black jack" -> "black-jack")
+    slug_directo = re.sub(r"[^a-z0-9]+", "-", normalizar_titulo(q_strip)).strip("-")
+    if slug_directo and slug_directo not in vistos:
+        try:
+            info_directa = jkanime.get_anime(slug_directo)
+            if info_directa and info_directa.episodes:
+                resultados.insert(0, info_directa)
+        except Exception:
+            pass
+
+    return resultados
 
 def buscar_slug_y_episodio_jkanime(slug_tio, anime_title, episodio=1):
-    if "kono-subarashii" in slug_tio or "konosuba" in slug_tio:
+    if slug_tio == "kono-subarashii-sekai-ni-shukufuku-wo":
         if episodio > 20:
             return "kono-subarashii-sekai-ni-shukufuku-wo-3", episodio - 20
         elif episodio > 10:
@@ -81,77 +159,125 @@ def buscar_slug_y_episodio_jkanime(slug_tio, anime_title, episodio=1):
         else:
             return "kono-subarashii-sekai-ni-shukufuku-wo", episodio
 
-    if slug_tio in SLUG_MAP_JKANIME:
-        return SLUG_MAP_JKANIME[slug_tio], episodio
-
     try:
         query_busqueda = limpiar_temporadas_titulo(anime_title)
-        resultados = jkanime.search(query_busqueda) or jkanime.search(anime_title)
-        
-        if not resultados:
-            return slug_tio, episodio
+        resultados_raw = buscar_en_jkanime_robusto(query_busqueda or anime_title)
+        coincidencias = [res for res in resultados_raw if son_titulos_similares(anime_title, res.title)]
 
-        coincidencias = [res for res in resultados if son_titulos_similares(anime_title, res.title)]
+        slug_sin_temp, temp_detectada = extraer_base_y_temporada(slug_tio)
+        slug_base_jk = SLUG_MAP_JKANIME.get(slug_sin_temp)
 
-        if not coincidencias:
-            return slug_tio, episodio
+        if not slug_base_jk:
+            t1_cands = [r for r in coincidencias if extraer_numero_temporada_texto(r.title) == 1 and extraer_numero_temporada_texto(r.slug) == 1]
+            if t1_cands:
+                slug_base_jk = sorted(t1_cands, key=lambda r: len(r.slug))[0].slug
+            elif coincidencias:
+                slug_base_jk = sorted(coincidencias, key=lambda r: len(r.slug))[0].slug
+            else:
+                slug_base_jk = SLUG_MAP_JKANIME.get(slug_tio, slug_tio)
 
-        slug_base = coincidencias[0].slug
-        info_base = jkanime.get_anime(slug_base)
-        
-        if info_base and info_base.episodes:
-            max_ep_t1 = max(info_base.episodes)
-            
-            if episodio > max_ep_t1:
-                if (episodio - max_ep_t1) <= 2:
-                    return slug_base, episodio
+        if temp_detectada and temp_detectada >= 2:
+            for res in coincidencias:
+                if extraer_numero_temporada_texto(res.title) == temp_detectada or extraer_numero_temporada_texto(res.slug) == temp_detectada:
+                    return res.slug, episodio
+            for cand in generar_candidatos_temporada(slug_base_jk, temp_detectada):
+                test_info = jkanime.get_anime(cand)
+                if test_info and test_info.episodes:
+                    return cand, episodio
 
-                num_season = (episodio - 1) // max_ep_t1 + 1
-                ep_relativo = (episodio - 1) % max_ep_t1 + 1
-                
-                for res in coincidencias:
-                    r_slug = res.slug.lower()
-                    if f"-{num_season}" in r_slug or f"season-{num_season}" in r_slug or f"{num_season}nd-season" in r_slug:
-                        return res.slug, ep_relativo
+        temporadas_jk = {1: slug_base_jk}
+        for res in coincidencias:
+            num_t = max(
+                extraer_numero_temporada_texto(res.title),
+                extraer_numero_temporada_texto(res.slug)
+            )
+            if num_t >= 2 and num_t not in temporadas_jk:
+                temporadas_jk[num_t] = res.slug
 
-                candidatos = [
-                    f"{slug_base}-{num_season}",
-                    f"{slug_base}-season-{num_season}",
-                    f"{slug_base}-{num_season}nd-season"
-                ]
-                for cand in candidatos:
+        ep_restante = episodio
+        max_temp_conocida = max(temporadas_jk.keys())
+
+        for season_idx in range(1, max(max_temp_conocida + 2, 10)):
+            slug_actual = temporadas_jk.get(season_idx)
+            info_temp = None
+
+            if slug_actual:
+                info_temp = jkanime.get_anime(slug_actual)
+            else:
+                for cand in generar_candidatos_temporada(slug_base_jk, season_idx):
                     test_info = jkanime.get_anime(cand)
                     if test_info and test_info.episodes:
-                        return cand, ep_relativo
+                        slug_actual = cand
+                        info_temp = test_info
+                        temporadas_jk[season_idx] = cand
+                        break
 
-        return coincidencias[0].slug, episodio
+            if not slug_actual and season_idx > max_temp_conocida:
+                break
+
+            max_ep_temp = max(info_temp.episodes) if (info_temp and info_temp.episodes) else 0
+
+            if season_idx < max_temp_conocida:
+                if max_ep_temp in (12, 13, 24, 25, 26):
+                    duracion_temp = max_ep_temp
+                elif max_ep_temp > 13:
+                    duracion_temp = 24
+                else:
+                    duracion_temp = 24 if ep_restante > 24 else 12
+
+                if ep_restante > duracion_temp:
+                    ep_restante -= duracion_temp
+                    continue
+                else:
+                    return slug_actual or slug_base_jk, max(1, ep_restante)
+
+            if slug_actual:
+                limite = max_ep_temp if max_ep_temp > 0 else 24
+                while ep_restante > limite and ep_restante > 24:
+                    ep_restante -= 24
+                return slug_actual, max(1, ep_restante)
+
+        ultima_temp = max(temporadas_jk.keys())
+        return temporadas_jk[ultima_temp], max(1, ep_restante)
+
     except Exception as e:
         print(f"\n ⚠️ Error buscando en JKAnime: {e}")
-    return slug_tio, episodio
+    return SLUG_MAP_JKANIME.get(slug_tio, slug_tio), episodio
 
-def obtener_servidores_combinados(slug_tio, anime_title, episodio):
-    print(f"\n ⏳ Obteniendo servidores para Cap. {episodio} (JKAnime + TioAnime)...")
-    
-    slug_jk, ep_jk = buscar_slug_y_episodio_jkanime(slug_tio, anime_title, episodio)
-    
-    print(f" 🎯 Slug TioAnime : {slug_tio} (Cap. {episodio})")
-    print(f" 🎯 Slug JKAnime  : {slug_jk} (Cap. {ep_jk})\n")
-    
+def obtener_servidores_combinados(slug_tio, slug_jk, anime_title, episodio):
+    print(f"\n ⏳ Obteniendo servidores para Cap. {episodio}...")
     servidores = []
 
-    try:
-        for s in (jkanime.get_servers(slug_jk, ep_jk) or []):
-            s.name = f"{s.name} (JKAnime)"
-            servidores.append(s)
-    except Exception as e:
-        print(f" ⚠️ No se pudieron obtener servidores de JKAnime: {e}")
+    if slug_tio:
+        slug_jk_resuelto, ep_jk = buscar_slug_y_episodio_jkanime(slug_tio, anime_title, episodio)
+        if slug_jk and slug_jk != slug_tio and ep_jk == episodio:
+            slug_jk_resuelto = slug_jk
 
-    try:
-        for s in (tioanime.get_servers(slug_tio, episodio) or []):
-            s.name = f"{s.name} (TioAnime)"
-            servidores.append(s)
-    except Exception as e:
-        print(f" ⚠️ No se pudieron obtener servidores de TioAnime: {e}")
+        print(f" 🎯 Slug TioAnime : {slug_tio} (Cap. {episodio})")
+        print(f" 🎯 Slug JKAnime  : {slug_jk_resuelto} (Cap. {ep_jk})\n")
+
+        try:
+            for s in (jkanime.get_servers(slug_jk_resuelto, ep_jk) or []):
+                s.name = f"{s.name} (JKAnime)"
+                servidores.append(s)
+        except Exception as e:
+            print(f" ⚠️ No se pudieron obtener servidores de JKAnime: {e}")
+
+        try:
+            for s in (tioanime.get_servers(slug_tio, episodio) or []):
+                s.name = f"{s.name} (TioAnime)"
+                servidores.append(s)
+        except Exception as e:
+            print(f" ⚠️ No se pudieron obtener servidores de TioAnime: {e}")
+
+    elif slug_jk:
+        print(f" 🎯 Slug JKAnime  : {slug_jk} (Cap. {episodio})\n")
+        try:
+            for s in (jkanime.get_servers(slug_jk, episodio) or []):
+                s.name = f"{s.name} (JKAnime)"
+                servidores.append(s)
+        except Exception as e:
+            print(f" ⚠️ No se pudieron obtener servidores de JKAnime: {e}")
 
     return servidores
 
@@ -265,7 +391,8 @@ def menu_asignar_etiquetas_anime(anime_slug, anime_title):
 
             set_anime_tags(anime_slug, list(tags_asignadas))
 
-def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_completed=True):
+def ciclo_reproduccion(slug_tio, slug_jk, anime_title, episodios, ep_inicial=None, is_completed=True):
+    slug_principal = slug_tio or slug_jk
     episodio = ep_inicial
     total_eps = max(episodios) if episodios else 0
 
@@ -287,8 +414,8 @@ def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_c
         if es_final:
             print(" 📌 ¡Atención! Estás en el último capítulo de este anime.")
 
-        update(anime_slug, anime_title, episodio, total_episodes=total_eps, is_completed=is_completed)
-        servidores = obtener_servidores_combinados(anime_slug, anime_title, episodio)
+        update(slug_principal, anime_title, episodio, total_episodes=total_eps, is_completed=is_completed)
+        servidores = obtener_servidores_combinados(slug_tio, slug_jk, anime_title, episodio)
 
         if not servidores:
             print(" ❌ No hay servidores disponibles para este capítulo.")
@@ -330,7 +457,7 @@ def ciclo_reproduccion(anime_slug, anime_title, episodios, ep_inicial=None, is_c
                 if opcion == 3: episodio = None
                 break
             elif opcion == 6:
-                menu_asignar_etiquetas_anime(anime_slug, anime_title)
+                menu_asignar_etiquetas_anime(slug_principal, anime_title)
             elif opcion == 0:
                 return "MENU"
 
@@ -346,20 +473,24 @@ def obtener_episodios_unificados(seleccion):
 
     if seleccion.get("slug_jk"):
         slug_actual = seleccion["slug_jk"]
-        season_idx = 1
+        slug_base_limpio, temp_inicial = extraer_base_y_temporada(slug_actual)
+        season_idx = temp_inicial or 1
+
         while slug_actual:
             a_jk = jkanime.get_anime(slug_actual)
             if not a_jk or not a_jk.episodes: break
             offset = max(eps) if eps else 0
-            if season_idx > 1: eps.update([e + offset for e in a_jk.episodes])
-            else: eps.update(a_jk.episodes)
+            if offset > 0 and min(a_jk.episodes) == 1 and max(a_jk.episodes) <= offset:
+                eps.update([e + offset for e in a_jk.episodes])
+            else:
+                eps.update(a_jk.episodes)
 
             is_completed = getattr(a_jk, "is_completed", True)
-            if is_completed:
+            if is_completed and not temp_inicial and not seleccion.get("slug_tio"):
+                break
+            elif is_completed and not temp_inicial:
                 season_idx += 1
-                slug_base_limpio = re.sub(r"-(season-\d+|\d+nd-season|\d+rd-season|\d+th-season|\d+)$", "", slug_actual)
-                
-                candidatos = [f"{slug_base_limpio}-{season_idx}", f"{slug_base_limpio}-season-{season_idx}"]
+                candidatos = generar_candidatos_temporada(slug_base_limpio, season_idx)
                 encontrado = False
                 for cand in candidatos:
                     siguiente_info = jkanime.get_anime(cand)
@@ -369,13 +500,13 @@ def obtener_episodios_unificados(seleccion):
                         break
                 if not encontrado:
                     break
-            else: break
+            else:
+                break
 
     lista_eps = sorted(list(eps)) if eps else []
     return lista_eps, is_completed
 
 def verificar_nuevos_capitulos():
-    """Comprueba animes en emisión (o marcados como no finalizados) para detectar episodios nuevos."""
     animes = all_anime()
     en_emision = [a for a in animes if not a.get("is_completed", True)]
     if not en_emision:
@@ -391,10 +522,11 @@ def verificar_nuevos_capitulos():
             if nuevo_total > a.get("total_episodes", 0) or estado_final != a.get("is_completed", False):
                 sync_anime_status(slug, nuevo_total, estado_final)
 
-def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
+def opciones_anime_seleccionado(slug_tio, slug_jk, title, episodios, is_completed=True):
+    slug_principal = slug_tio or slug_jk
     while True:
         limpiar_pantalla()
-        progreso = get(slug)
+        progreso = get(slug_principal)
         ep_visto = progreso.get("episode") if progreso else None
         tags = progreso.get("tags", []) if progreso else []
         
@@ -427,14 +559,14 @@ def opciones_anime_seleccionado(slug, title, episodios, is_completed=True):
                 if sub_op == 0: continue
                 if sub_op == 1: ep_inicial = ep_visto
 
-            res = ciclo_reproduccion(slug, title, episodios, ep_inicial, is_completed)
+            res = ciclo_reproduccion(slug_tio, slug_jk, title, episodios, ep_inicial, is_completed)
             if res == "MENU": break
         elif op == 2:
-            menu_asignar_etiquetas_anime(slug, title)
+            menu_asignar_etiquetas_anime(slug_principal, title)
         elif op == 3:
             confirmar = input(f"\n ⚠️ ¿Estás seguro de que deseas eliminar '{title}' de tu lista? (s/N): ").strip().lower()
             if confirmar == 's':
-                remove(slug)
+                remove(slug_principal)
                 print(f"\n 🗑️ '{title}' ha sido eliminado de tu historial y listas.")
                 input("\n Presiona Enter para continuar...")
                 break
@@ -457,11 +589,13 @@ def buscar_anime():
         print(f" ⚠️ Error buscando en TioAnime: {e}")
 
     try:
-        res_jk = jkanime.search(query) or []
+        res_jk = buscar_en_jkanime_robusto(query)
         for a in res_jk:
             agregado = False
             for item in resultados_agrupados:
-                if son_titulos_similares(a.title, item["title"]):
+                t_item = extraer_numero_temporada_texto(item["title"])
+                t_jk = extraer_numero_temporada_texto(a.title)
+                if son_titulos_similares(a.title, item["title"]) and t_item == t_jk:
                     if "JKAnime" not in item["providers"]:
                         item["providers"].append("JKAnime")
                         item["slug_jk"] = a.slug
@@ -494,10 +628,9 @@ def buscar_anime():
 
     seleccion = resultados_agrupados[opcion - 1]
     episodios, is_completed = obtener_episodios_unificados(seleccion)
-    slug_principal = seleccion["slug_tio"] or seleccion["slug_jk"]
-    titulo_principal = seleccion["title"]
-
-    opciones_anime_seleccionado(slug_principal, titulo_principal, episodios, is_completed)
+    opciones_anime_seleccionado(
+        seleccion["slug_tio"], seleccion["slug_jk"], seleccion["title"], episodios, is_completed
+    )
 
 def continuar(filtro_etiqueta=None, solo_completados=False):
     limpiar_pantalla()
@@ -519,7 +652,6 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             titulo_seccion = f"          ETIQUETA: {filtro_etiqueta.upper()}          "
             msg_vacio = f" 📭 No hay animes registrados bajo la etiqueta '{filtro_etiqueta}'."
         else:
-            # Muestra todos los que NO estén completados (incluye los que están en emisión aunque vayas al día)
             viendo = [
                 a for a in viendo 
                 if not (a.get("is_completed", True) and a.get("total_episodes", 0) > 0 and a.get("episode", 0) >= a.get("total_episodes", 0))
@@ -562,10 +694,17 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
         if opcion == 0: return
 
         anime_sel = viendo[opcion - 1]
+        slug_guardado = anime_sel["slug"]
         
-        anime_real = tioanime.get_anime(anime_sel["slug"])
-        if not anime_real:
-            anime_real = jkanime.get_anime(anime_sel["slug"])
+        slug_tio_real = None
+        slug_jk_real = None
+        anime_real = tioanime.get_anime(slug_guardado)
+        if anime_real and anime_real.episodes:
+            slug_tio_real = slug_guardado
+        else:
+            anime_real = jkanime.get_anime(slug_guardado)
+            if anime_real and anime_real.episodes:
+                slug_jk_real = slug_guardado
 
         if not anime_real:
             print(" ⚠️ No se pudo encontrar la información de este anime.")
@@ -573,11 +712,12 @@ def continuar(filtro_etiqueta=None, solo_completados=False):
             return
 
         is_completed = getattr(anime_real, "is_completed", True)
-        # Sincronizar al abrirlo por si hubo cambios recientes
         if anime_real.episodes:
             sync_anime_status(anime_real.slug, max(anime_real.episodes), is_completed)
 
-        opciones_anime_seleccionado(anime_real.slug, anime_real.title, sorted(anime_real.episodes), is_completed)
+        opciones_anime_seleccionado(
+            slug_tio_real, slug_jk_real, anime_real.title, sorted(anime_real.episodes), is_completed
+        )
 
 def menu_gestionar_etiquetas_global():
     while True:
